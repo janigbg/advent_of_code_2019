@@ -8,7 +8,7 @@ fn main() {
 
     parser::print_args(&args);
 
-    let modules = parser::parse_lines(args);
+    let modules = parser::parse_lines(&args);
 
     println!(
         "Fuel needed: {}",
