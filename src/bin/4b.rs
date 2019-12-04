@@ -6,8 +6,11 @@ fn main() {
 
     parser::print_args(&args);
 
-    let range: Vec<&str> = args[1].split('-').map(|s|s.trim()).collect();
-    let (min, max) = (range[0].parse::<i32>().unwrap(), range[1].parse::<i32>().unwrap());
+    let range: Vec<&str> = args[1].split('-').map(|s| s.trim()).collect();
+    let (min, max) = (
+        range[0].parse::<i32>().unwrap(),
+        range[1].parse::<i32>().unwrap(),
+    );
 
     let mut counter = 0;
     let mut current = password::Password::new(min);
@@ -21,5 +24,8 @@ fn main() {
         }
     }
 
-    println!("\"Strictly\" valid passwords within range ({} - {}): {}", min, max, counter);
+    println!(
+        "\"Strictly\" valid passwords within range ({} - {}): {}",
+        min, max, counter
+    );
 }

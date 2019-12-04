@@ -11,9 +11,13 @@ pub struct Password {
 
 impl Password {
     pub fn new(value: i32) -> Password {
-        let mut result = Password { digits: [0; PASSWORD_LENGTH] };
+        let mut result = Password {
+            digits: [0; PASSWORD_LENGTH],
+        };
 
-        result.digits.iter_mut()
+        result
+            .digits
+            .iter_mut()
             .enumerate()
             .for_each(|(i, d)| *d = (value / digit(i)) % 10);
 
@@ -21,8 +25,7 @@ impl Password {
     }
 
     pub fn value(&self) -> i32 {
-        (0..PASSWORD_LENGTH)
-            .fold(0, |v, x| v + self.digits[x] * digit(x))
+        (0..PASSWORD_LENGTH).fold(0, |v, x| v + self.digits[x] * digit(x))
     }
 
     fn doubles(&self) -> Vec<usize> {
@@ -43,11 +46,11 @@ impl Password {
     }
 
     fn increasing(&self) -> bool {
-        let mut prev: Option<i32> = None;
-        for digit in &self.digits {
-            match prev {
-                Some(p) if p > *digit => return false,
-                _ => prev = Some(*digit)
+        let mut previous: Option<i32> = None;
+        for current in &self.digits {
+            match previous {
+                Some(prev) if prev > *current => return false,
+                _ => previous = Some(*current),
             }
         }
         true
@@ -59,7 +62,7 @@ impl Password {
 
     pub fn is_strictly_valid(&self) -> bool {
         let doubles = self.doubles();
-        let triplets = self.triplets(); 
+        let triplets = self.triplets();
 
         let has_exact_double = doubles
             .iter()
@@ -87,6 +90,6 @@ impl Password {
 fn digit(i: usize) -> i32 {
     match i {
         _ if i >= PASSWORD_LENGTH => panic!("Invalid digit!"),
-        _ => 10_i32.pow((PASSWORD_LENGTH - i - 1) as u32)
-    }       
+        _ => 10_i32.pow((PASSWORD_LENGTH - i - 1) as u32),
+    }
 }
