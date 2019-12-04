@@ -1,5 +1,12 @@
 use std::fs;
 
+pub fn print_args(args: &Vec<String>) {
+    for arg in args {
+        print!("{} ", arg);
+    }
+    println!();
+}
+
 pub fn parse_lines(args: Vec<String>) -> Vec<String> {
     parse_vals(args, read_lines)
 }

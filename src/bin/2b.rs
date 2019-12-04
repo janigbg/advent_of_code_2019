@@ -8,10 +8,7 @@ use std::env;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    for arg in &args {
-        print!("{} ", arg);
-    }
-    println!();
+    parser::print_args(&args);
 
     let program = program(args);
 
