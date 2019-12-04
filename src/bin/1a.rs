@@ -6,9 +6,10 @@ use std::env;
 fn main() {
     let args: Vec<String> = env::args().collect();
 
-    for arg in args.clone() {
-        println!("{}", arg);
+    for arg in &args {
+        print!("{} ", arg);
     }
+    println!();
 
     let modules = parser::parse_lines(args);
 
