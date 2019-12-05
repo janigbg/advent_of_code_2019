@@ -45,6 +45,24 @@ pub enum Instruction {
     Output {
         i1: Parameter,
     },
+    JumpIfTrue {
+        i1: Parameter,
+        pc: Parameter,
+    },
+    JumpIfFalse {
+        i1: Parameter,
+        pc: Parameter,
+    },
+    LessThan {
+        i1: Parameter,
+        i2: Parameter,
+        out: Parameter,
+    },
+    Equals {
+        i1: Parameter,
+        i2: Parameter,
+        out: Parameter,
+    },
     Halt,
 }
 
@@ -143,6 +161,54 @@ pub fn process_instruction(
                 mode: mode1,
             },
         },
+        (5, _, _, _) => Instruction::JumpIfTrue {
+            i1: Parameter {
+                value: program[*pc + 1],
+                mode: mode1,
+            },
+            pc: Parameter {
+                value: program[*pc + 2],
+                mode: mode2,
+            },
+        },
+        (6, _, _, _) => Instruction::JumpIfFalse {
+            i1: Parameter {
+                value: program[*pc + 1],
+                mode: mode1,
+            },
+            pc: Parameter {
+                value: program[*pc + 2],
+                mode: mode2,
+            },
+        },
+        (7, _, _, ParameterMode::Position) => Instruction::LessThan {
+            i1: Parameter {
+                value: program[*pc + 1],
+                mode: mode1,
+            },
+            i2: Parameter {
+                value: program[*pc + 2],
+                mode: mode2,
+            },
+            out: Parameter {
+                value: program[*pc + 3],
+                mode: mode3,
+            },
+        },
+        (8, _, _, ParameterMode::Position) => Instruction::Equals {
+            i1: Parameter {
+                value: program[*pc + 1],
+                mode: mode1,
+            },
+            i2: Parameter {
+                value: program[*pc + 2],
+                mode: mode2,
+            },
+            out: Parameter {
+                value: program[*pc + 3],
+                mode: mode3,
+            },
+        },
         (99, _, _, _) => Instruction::Halt,
         _ => {
             return Err(Box::new(IntCodeError::new(format!(
@@ -175,6 +241,40 @@ pub fn process_instruction(
         Instruction::Output { i1 } => {
             println!("OUTPUT: {}", try_get_param(&program, i1)?);
             *pc += 2;
+            Ok(true)
+        }
+        Instruction::JumpIfTrue { i1, pc: pc_new } => {
+            match try_get_param(&program, i1)? {
+                0 => *pc += 3,
+                _ => *pc = try_get_param(&program, pc_new)? as usize,
+            }
+            
+            Ok(true)
+        }
+        Instruction::JumpIfFalse { i1, pc: pc_new } => {
+            match try_get_param(&program, i1)? {
+                0 => *pc = try_get_param(&program, pc_new)? as usize,
+                _ => *pc += 3,
+            }
+            
+            Ok(true)
+        }
+        Instruction::LessThan { i1, i2, out } => {
+            program[out.value as usize] = match try_get_param(&program, i1)? < try_get_param(&program, i2)? {
+                true => 1,
+                false => 0,
+            };
+                
+            *pc += 4;
+            Ok(true)
+        }
+        Instruction::Equals { i1, i2, out } => {
+            program[out.value as usize] = match try_get_param(&program, i1)? == try_get_param(&program, i2)? {
+                true => 1,
+                false => 0,
+            };
+                
+            *pc += 4;
             Ok(true)
         }
         Instruction::Halt => {
