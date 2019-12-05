@@ -1,4 +1,7 @@
 use std::convert::TryFrom;
+use std::error::Error;
+use std::fmt;
+use std::io;
 
 #[derive(Debug, Copy, Clone)]
 pub enum ParameterMode {
@@ -45,11 +48,55 @@ pub enum Instruction {
     Halt,
 }
 
+#[derive(Debug)]
+pub struct IntCodeError {
+    details: String,
+}
+
+impl IntCodeError {
+    fn new<'a, T>(msg: T) -> Self
+    where
+        T: AsRef<str> + 'a,
+    {
+        IntCodeError {
+            details: msg.as_ref().to_string(),
+        }
+    }
+}
+
+impl fmt::Display for IntCodeError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for IntCodeError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
+impl From<String> for IntCodeError {
+    fn from(err: String) -> Self {
+        IntCodeError::new(err)
+    }
+}
+
+impl From<io::Error> for IntCodeError {
+    fn from(err: io::Error) -> Self {
+        IntCodeError::new(err.description())
+    }
+}
+
+pub fn err_input() -> Result<i32, Box<dyn Error>> {
+    Err(Box::new(IntCodeError::from(format!("No input"))))
+}
+
 pub fn process_instruction(
     program: &mut Vec<i32>,
     pc: &mut usize,
-    input_fn: fn() -> Result<i32, String>,
-) -> Result<bool, String> {
+    input_fn: fn() -> Result<i32, Box<dyn Error>>,
+) -> Result<bool, Box<dyn Error>> {
     let op = program[*pc];
     let opcode = op % 100;
     let mode1 = ParameterMode::try_from((op / 100) % 10)?;
@@ -97,7 +144,12 @@ pub fn process_instruction(
             },
         },
         (99, _, _, _) => Instruction::Halt,
-        _ => return Err(format!("Invalid instruction at {}: {}", *pc, program[*pc])),
+        _ => {
+            return Err(Box::new(IntCodeError::new(format!(
+                "Invalid instruction at {}: {}",
+                *pc, program[*pc]
+            ))))
+        }
     };
 
     println!("{:?}", instruction);

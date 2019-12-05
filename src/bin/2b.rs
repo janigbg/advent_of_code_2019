@@ -38,9 +38,7 @@ fn test_program(expected: i32, program: &Vec<i32>, noun: i32, verb: i32) -> bool
     prog[1] = noun;
     prog[2] = verb;
     let mut pc = 0;
-    while let Ok(true) =
-        intcode::process_instruction(&mut prog, &mut pc, || Err(format!("No input")))
-    {}
+    while let Ok(true) = intcode::process_instruction(&mut prog, &mut pc, intcode::err_input) {}
     prog[0] == expected
 }
 
