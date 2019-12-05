@@ -248,7 +248,7 @@ pub fn process_instruction(
                 0 => *pc += 3,
                 _ => *pc = try_get_param(&program, pc_new)? as usize,
             }
-            
+
             Ok(true)
         }
         Instruction::JumpIfFalse { i1, pc: pc_new } => {
@@ -256,24 +256,26 @@ pub fn process_instruction(
                 0 => *pc = try_get_param(&program, pc_new)? as usize,
                 _ => *pc += 3,
             }
-            
+
             Ok(true)
         }
         Instruction::LessThan { i1, i2, out } => {
-            program[out.value as usize] = match try_get_param(&program, i1)? < try_get_param(&program, i2)? {
-                true => 1,
-                false => 0,
-            };
-                
+            program[out.value as usize] =
+                match try_get_param(&program, i1)? < try_get_param(&program, i2)? {
+                    true => 1,
+                    false => 0,
+                };
+
             *pc += 4;
             Ok(true)
         }
         Instruction::Equals { i1, i2, out } => {
-            program[out.value as usize] = match try_get_param(&program, i1)? == try_get_param(&program, i2)? {
-                true => 1,
-                false => 0,
-            };
-                
+            program[out.value as usize] =
+                match try_get_param(&program, i1)? == try_get_param(&program, i2)? {
+                    true => 1,
+                    false => 0,
+                };
+
             *pc += 4;
             Ok(true)
         }
