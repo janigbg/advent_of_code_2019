@@ -11,7 +11,9 @@ fn main() {
     let mut program = program(&args);
 
     let mut pc = 0;
-    while intcode::process_instruction(&mut program, &mut pc) {}
+    while let Ok(true) =
+        intcode::process_instruction(&mut program, &mut pc, || Err(format!("No input")))
+    {}
 
     println!("Result: {}", program[0]);
 }
