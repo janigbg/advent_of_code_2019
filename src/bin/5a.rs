@@ -14,7 +14,7 @@ fn main() {
     let mut program = program(&args);
 
     let mut pc = 0;
-    while let Ok(true) = intcode::process_instruction(&mut program, &mut pc, stdin) {}
+    while let Ok(true) = intcode::process_instruction(&mut program, &mut pc, &mut stdin, &mut intcode::stdout_output) {}
 
     println!("Done: {}", program[0]);
 }

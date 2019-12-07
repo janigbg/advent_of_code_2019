@@ -110,11 +110,20 @@ pub fn err_input() -> Result<i32, Box<dyn Error>> {
     Err(Box::new(IntCodeError::from(format!("No input"))))
 }
 
-pub fn process_instruction(
+pub fn stdout_output(out: i32) -> () {
+    println!("OUTPUT: {}", out);
+} 
+
+pub fn process_instruction<FIn, FOut>(
     program: &mut Vec<i32>,
     pc: &mut usize,
-    input_fn: fn() -> Result<i32, Box<dyn Error>>,
-) -> Result<bool, Box<dyn Error>> {
+    input_fn: &mut FIn,
+    output_fn: &mut FOut,
+) -> Result<bool, Box<dyn Error>>
+where
+    FIn: FnMut() -> Result<i32, Box<dyn Error>>,
+    FOut: FnMut(i32) -> ()
+{
     let op = program[*pc];
     let opcode = op % 100;
     let mode1 = ParameterMode::try_from((op / 100) % 10)?;
@@ -239,7 +248,7 @@ pub fn process_instruction(
             Ok(true)
         }
         Instruction::Output { i1 } => {
-            println!("OUTPUT: {}", try_get_param(&program, i1)?);
+            output_fn(try_get_param(&program, i1)?);
             *pc += 2;
             Ok(true)
         }
