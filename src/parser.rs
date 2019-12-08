@@ -15,6 +15,10 @@ pub fn parse_comma_list(args: &Vec<String>) -> Vec<String> {
     parse_vals(args, read_comma_list)
 }
 
+pub fn parse_digits(args: &Vec<String>) -> Vec<String> {
+    parse_vals(args, read_digits)
+}
+
 fn parse_vals<F>(args: &Vec<String>, parser: F) -> Vec<String>
 where
     F: Fn(String) -> Vec<String>,
@@ -27,6 +31,12 @@ where
         _ if args[1] == "-f" && args.len() > 2 => parser(read_from_file(&args[2]).unwrap()),
         _ => args.clone().into_iter().skip(1).collect(),
     }
+}
+
+pub fn read_digits(s: String) -> Vec<String> {
+    s.chars()
+        .map(|c| String::from(format!("{}", c)))
+        .collect()
 }
 
 pub fn read_comma_list(s: String) -> Vec<String> {
