@@ -13,6 +13,10 @@ fn main() {
 
     let mut program = program(&args);
 
+    for _ in 0..10000 {
+        program.push(0);
+    }
+
     let mut pc = 0;
     let mut rb = 0;
     while let Ok(true) = intcode::process_instruction(&mut program, &mut pc, &mut rb, &mut stdin, &mut intcode::stdout_output) {}

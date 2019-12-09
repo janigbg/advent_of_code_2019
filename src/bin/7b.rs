@@ -14,7 +14,7 @@ fn main() {
 
     let program = program(&args);
 
-    let mut results: Vec<i32> = Vec::new();
+    let mut results: Vec<i64> = Vec::new();
     let mut phase_settings = [5, 6, 7, 8, 9];
     let mut iter = true;
     while iter {
@@ -29,12 +29,12 @@ fn main() {
 #[derive(Debug)]
 struct IO {
     i : usize,
-    tx: Sender<i32>,
-    rx: Receiver<i32>,
+    tx: Sender<i64>,
+    rx: Receiver<i64>,
 }
 
 impl IO {
-    pub fn new(i: usize, sender: &Sender<i32>, receiver: &Receiver<i32>) -> Self {
+    pub fn new(i: usize, sender: &Sender<i64>, receiver: &Receiver<i64>) -> Self {
         IO {
             i,
             tx: sender.clone(),
@@ -42,13 +42,13 @@ impl IO {
         }
     }
 
-    pub fn input(&self) -> Result<i32, Box<dyn Error>> {
+    pub fn input(&self) -> Result<i64, Box<dyn Error>> {
         let x = self.rx.recv()?;
         println!("RECV({}): {}", AMPLIFIER_NAMES[self.i], x);
         Ok(x)
     }
 
-    pub fn output(&self, val: i32) -> () {
+    pub fn output(&self, val: i64) -> () {
         println!("SEND({}): {}", AMPLIFIER_NAMES[self.i], val);
         self.tx.send(val).expect(&format!("Error sending {}", val));
     }
@@ -57,11 +57,11 @@ impl IO {
 const AMPLIFIER_NAMES: [&str; 5] = ["A", "B", "C", "D", "E"];
 
 pub fn process_program(
-    program: &Vec<i32>,
-    phase_settings: &[i32; 5],
-) -> Result<i32, Box<dyn Error>> {
+    program: &Vec<i64>,
+    phase_settings: &[i64; 5],
+) -> Result<i64, Box<dyn Error>> {
 
-    let channels: [(Sender<i32>, Receiver<i32>); 5] = [bounded(5), bounded(5), bounded(5), bounded(5), bounded(5)];
+    let channels: [(Sender<i64>, Receiver<i64>); 5] = [bounded(5), bounded(5), bounded(5), bounded(5), bounded(5)];
     let mut children = Vec::new();
 
     for i in 0..5 {
@@ -69,7 +69,8 @@ pub fn process_program(
         let io = IO::new(i, &channels[(i + 1) % 5].0, &channels[i].1);
         let child = thread::spawn(move || {
             let mut pc = 0;
-            while let Ok(true) = intcode::process_instruction(&mut prog, &mut pc, &mut || io.input(), &mut |i| io.output(i)) {}
+            let mut rb = 0;
+            while let Ok(true) = intcode::process_instruction(&mut prog, &mut pc, &mut rb, &mut || io.input(), &mut |i| io.output(i)) {}
         });
 
         children.push(child);
@@ -91,9 +92,9 @@ pub fn process_program(
     Ok(out)
 }
 
-fn program(args: &Vec<String>) -> Vec<i32> {
+fn program(args: &Vec<String>) -> Vec<i64> {
     parser::parse_comma_list(args)
         .into_iter()
-        .map(|s| s.parse::<i32>().unwrap())
+        .map(|s| s.parse::<i64>().unwrap())
         .collect()
 }

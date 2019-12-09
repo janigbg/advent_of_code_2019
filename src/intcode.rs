@@ -3,10 +3,11 @@ use std::error::Error;
 use std::fmt;
 use std::io;
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq)]
 pub enum ParameterMode {
     Position = 0,
     Immediate = 1,
+    Relative = 2,
 }
 
 impl TryFrom<i32> for ParameterMode {
@@ -16,6 +17,20 @@ impl TryFrom<i32> for ParameterMode {
         match v {
             x if x == ParameterMode::Position as i32 => Ok(ParameterMode::Position),
             x if x == ParameterMode::Immediate as i32 => Ok(ParameterMode::Immediate),
+            x if x == ParameterMode::Relative as i32 => Ok(ParameterMode::Relative),
+            _ => Err(format!("{} is not a ParameterMode", v)),
+        }
+    }
+}
+
+impl TryFrom<i64> for ParameterMode {
+    type Error = String;
+
+    fn try_from(v: i64) -> Result<Self, Self::Error> {
+        match v {
+            x if x == ParameterMode::Position as i64 => Ok(ParameterMode::Position),
+            x if x == ParameterMode::Immediate as i64 => Ok(ParameterMode::Immediate),
+            x if x == ParameterMode::Relative as i64 => Ok(ParameterMode::Relative),
             _ => Err(format!("{} is not a ParameterMode", v)),
         }
     }
@@ -23,7 +38,7 @@ impl TryFrom<i32> for ParameterMode {
 
 #[derive(Debug, Copy, Clone)]
 pub struct Parameter {
-    pub value: i32,
+    pub value: i64,
     pub mode: ParameterMode,
 }
 
@@ -62,6 +77,9 @@ pub enum Instruction {
         i1: Parameter,
         i2: Parameter,
         out: Parameter,
+    },
+    RelativeBaseOffset {
+        i1: Parameter,
     },
     Halt,
 }
@@ -106,23 +124,24 @@ impl From<io::Error> for IntCodeError {
     }
 }
 
-pub fn err_input() -> Result<i32, Box<dyn Error>> {
+pub fn err_input() -> Result<i64, Box<dyn Error>> {
     Err(Box::new(IntCodeError::from(format!("No input"))))
 }
 
-pub fn stdout_output(out: i32) -> () {
+pub fn stdout_output(out: i64) -> () {
     println!("OUTPUT: {}", out);
 } 
 
 pub fn process_instruction<FIn, FOut>(
-    program: &mut Vec<i32>,
+    program: &mut Vec<i64>,
     pc: &mut usize,
+    relative_base: &mut i64,
     input_fn: &mut FIn,
     output_fn: &mut FOut,
 ) -> Result<bool, Box<dyn Error>>
 where
-    FIn: FnMut() -> Result<i32, Box<dyn Error>>,
-    FOut: FnMut(i32) -> ()
+    FIn: FnMut() -> Result<i64, Box<dyn Error>>,
+    FOut: FnMut(i64) -> ()
 {
     let op = program[*pc];
     let opcode = op % 100;
@@ -130,7 +149,7 @@ where
     let mode2 = ParameterMode::try_from((op / 1000) % 10)?;
     let mode3 = ParameterMode::try_from((op / 10000) % 10)?;
     let instruction = match (opcode, mode1, mode2, mode3) {
-        (1, _, _, ParameterMode::Position) => Instruction::Sum {
+        (1, _, _, m) if m != ParameterMode::Immediate => Instruction::Sum {
             i1: Parameter {
                 value: program[*pc + 1],
                 mode: mode1,
@@ -144,7 +163,7 @@ where
                 mode: mode3,
             },
         },
-        (2, _, _, ParameterMode::Position) => Instruction::Prod {
+        (2, _, _, m) if m != ParameterMode::Immediate => Instruction::Prod {
             i1: Parameter {
                 value: program[*pc + 1],
                 mode: mode1,
@@ -158,7 +177,7 @@ where
                 mode: mode3,
             },
         },
-        (3, ParameterMode::Position, _, _) => Instruction::Input {
+        (3, m, _, _) if m != ParameterMode::Immediate => Instruction::Input {
             out: Parameter {
                 value: program[*pc + 1],
                 mode: mode1,
@@ -190,7 +209,7 @@ where
                 mode: mode2,
             },
         },
-        (7, _, _, ParameterMode::Position) => Instruction::LessThan {
+        (7, _, _, m) if m != ParameterMode::Immediate => Instruction::LessThan {
             i1: Parameter {
                 value: program[*pc + 1],
                 mode: mode1,
@@ -204,7 +223,7 @@ where
                 mode: mode3,
             },
         },
-        (8, _, _, ParameterMode::Position) => Instruction::Equals {
+        (8, _, _, m) if m != ParameterMode::Immediate => Instruction::Equals {
             i1: Parameter {
                 value: program[*pc + 1],
                 mode: mode1,
@@ -216,6 +235,12 @@ where
             out: Parameter {
                 value: program[*pc + 3],
                 mode: mode3,
+            },
+        },
+        (9, _, _, _) => Instruction::RelativeBaseOffset {
+            i1: Parameter {
+                value: program[*pc + 1],
+                mode: mode1,
             },
         },
         (99, _, _, _) => Instruction::Halt,
@@ -231,46 +256,50 @@ where
 
     match instruction {
         Instruction::Sum { i1, i2, out } => {
-            program[out.value as usize] =
-                try_get_param(&program, i1)? + try_get_param(&program, i2)?;
+            let mem = try_get_address(&program, &relative_base, out)?;
+            program[mem] =
+                try_get_param(&program, &relative_base, i1)? + try_get_param(&program, &relative_base, i2)?;
             *pc += 4;
             Ok(true)
         }
         Instruction::Prod { i1, i2, out } => {
-            program[out.value as usize] =
-                try_get_param(&program, i1)? * try_get_param(&program, i2)?;
+            let mem = try_get_address(&program, &relative_base, out)?;
+            program[mem] =
+                try_get_param(&program, &relative_base, i1)? * try_get_param(&program, &relative_base, i2)?;
             *pc += 4;
             Ok(true)
         }
         Instruction::Input { out } => {
-            program[out.value as usize] = input_fn()?;
+            let mem = try_get_address(&program, &relative_base, out)?;
+            program[mem] = input_fn()?;
             *pc += 2;
             Ok(true)
         }
         Instruction::Output { i1 } => {
-            output_fn(try_get_param(&program, i1)?);
+            output_fn(try_get_param(&program, &relative_base, i1)?);
             *pc += 2;
             Ok(true)
         }
         Instruction::JumpIfTrue { i1, pc: pc_new } => {
-            match try_get_param(&program, i1)? {
+            match try_get_param(&program, &relative_base, i1)? {
                 0 => *pc += 3,
-                _ => *pc = try_get_param(&program, pc_new)? as usize,
+                _ => *pc = try_get_param(&program, &relative_base, pc_new)? as usize,
             }
 
             Ok(true)
         }
         Instruction::JumpIfFalse { i1, pc: pc_new } => {
-            match try_get_param(&program, i1)? {
-                0 => *pc = try_get_param(&program, pc_new)? as usize,
+            match try_get_param(&program, &relative_base, i1)? {
+                0 => *pc = try_get_param(&program, &relative_base, pc_new)? as usize,
                 _ => *pc += 3,
             }
 
             Ok(true)
         }
         Instruction::LessThan { i1, i2, out } => {
-            program[out.value as usize] =
-                match try_get_param(&program, i1)? < try_get_param(&program, i2)? {
+            let mem = try_get_address(&program, &relative_base, out)?;
+            program[mem] =
+                match try_get_param(&program, &relative_base, i1)? < try_get_param(&program, &relative_base, i2)? {
                     true => 1,
                     false => 0,
                 };
@@ -279,13 +308,20 @@ where
             Ok(true)
         }
         Instruction::Equals { i1, i2, out } => {
-            program[out.value as usize] =
-                match try_get_param(&program, i1)? == try_get_param(&program, i2)? {
+            let mem = try_get_address(&program, &relative_base, out)?;
+            program[mem] =
+                match try_get_param(&program, &relative_base, i1)? == try_get_param(&program, &relative_base, i2)? {
                     true => 1,
                     false => 0,
                 };
 
             *pc += 4;
+            Ok(true)
+        }
+        Instruction::RelativeBaseOffset { i1 } => {
+            *relative_base += try_get_param(&program, &relative_base, i1)?;
+            *pc += 2;
+            println!("Relative offset: {}", *relative_base);
             Ok(true)
         }
         Instruction::Halt => {
@@ -295,12 +331,27 @@ where
     }
 }
 
-fn try_get_param(program: &Vec<i32>, param: Parameter) -> Result<i32, String> {
+fn try_get_address(program: &Vec<i64>, relative_base: &i64, param: Parameter) -> Result<usize, String> {
     match (param.mode, param.value) {
-        (ParameterMode::Position, p) if p >= 0 && p < program.len() as i32 => {
+        (ParameterMode::Position, p) if p >= 0 && p < program.len() as i64 => {
+            Ok(param.value as usize)
+        }
+        (ParameterMode::Relative, p) if *relative_base + p >= 0 => {
+            Ok((*relative_base + param.value) as usize)
+        }
+        _ => Err(format!("Invalid parameter value: {:?}", param)),
+    }
+}
+
+fn try_get_param(program: &Vec<i64>, relative_base: &i64, param: Parameter) -> Result<i64, String> {
+    match (param.mode, param.value) {
+        (ParameterMode::Position, p) if p >= 0 && p < program.len() as i64 => {
             Ok(program[param.value as usize])
         }
         (ParameterMode::Immediate, _) => Ok(param.value),
+        (ParameterMode::Relative, p) if *relative_base + p >= 0 => {
+            Ok(program[(*relative_base + param.value) as usize])
+        }
         _ => Err(format!("Invalid parameter value: {:?}", param)),
     }
 }

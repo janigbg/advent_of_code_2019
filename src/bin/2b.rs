@@ -11,7 +11,7 @@ fn main() {
     let program = program(&args);
 
     let expected = 19690720;
-    let mut found: Option<(i32, i32)> = None;
+    let mut found: Option<(i64, i64)> = None;
 
     for i in 0..10000 {
         let (noun, verb) = (i / 100, i % 100);
@@ -32,19 +32,20 @@ fn main() {
     };
 }
 
-fn test_program(expected: i32, program: &Vec<i32>, noun: i32, verb: i32) -> bool {
+fn test_program(expected: i64, program: &Vec<i64>, noun: i64, verb: i64) -> bool {
     println!("Testing Noun: {}, Verb: {}", noun, verb);
     let mut prog = program.clone();
     prog[1] = noun;
     prog[2] = verb;
     let mut pc = 0;
-    while let Ok(true) = intcode::process_instruction(&mut prog, &mut pc, &mut intcode::err_input, &mut intcode::stdout_output) {}
+    let mut rb = 0;
+    while let Ok(true) = intcode::process_instruction(&mut prog, &mut pc, &mut rb, &mut intcode::err_input, &mut intcode::stdout_output) {}
     prog[0] == expected
 }
 
-fn program(args: &Vec<String>) -> Vec<i32> {
+fn program(args: &Vec<String>) -> Vec<i64> {
     parser::parse_comma_list(args)
         .into_iter()
-        .map(|s| s.parse::<i32>().unwrap())
+        .map(|s| s.parse::<i64>().unwrap())
         .collect()
 }

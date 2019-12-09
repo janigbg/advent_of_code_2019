@@ -12,7 +12,7 @@ fn main() {
 
     let program = program(&args);
 
-    let mut results: Vec<i32> = Vec::new();
+    let mut results: Vec<i64> = Vec::new();
     let mut phase_settings = [0, 1, 2, 3, 4];
     let mut iter = true;
     while iter {
@@ -26,14 +26,15 @@ fn main() {
 }
 
 pub fn process_program(
-    program: &Vec<i32>,
+    program: &Vec<i64>,
     io: &mut IO,
-) -> Result<i32, Box<dyn Error>> {
+) -> Result<i64, Box<dyn Error>> {
     for _ in 0..5 {
         let mut prog = program.clone();
         let mut pc = 0;
+        let mut rb = 0;
         let mut out = None;
-        while let true = intcode::process_instruction(&mut prog, &mut pc, &mut || io.input(), &mut |i| out = Some(i))? {
+        while let true = intcode::process_instruction(&mut prog, &mut pc, &mut rb, &mut || io.input(), &mut |i| out = Some(i))? {
             if out != None {
                 io.set_output(out);
                 out = None;
@@ -47,10 +48,10 @@ pub fn process_program(
     }
 }
 
-fn program(args: &Vec<String>) -> Vec<i32> {
+fn program(args: &Vec<String>) -> Vec<i64> {
     parser::parse_comma_list(args)
         .into_iter()
-        .map(|s| s.parse::<i32>().unwrap())
+        .map(|s| s.parse::<i64>().unwrap())
         .collect()
 }
 
@@ -63,14 +64,14 @@ enum InputType {
 
 #[derive(Debug)]
 pub struct IO {
-    phase: [i32; 5],
-    current: i32,
+    phase: [i64; 5],
+    current: i64,
     input_type: InputType,
-    current_out: Option<i32>,
+    current_out: Option<i64>,
 }
 
 impl IO {
-    pub fn new(phase: &[i32;5]) -> Self {
+    pub fn new(phase: &[i64;5]) -> Self {
         let mut result = IO {
             phase: [0; 5],
             current: -1,
@@ -83,12 +84,12 @@ impl IO {
         result
     }
 
-    pub fn input(&mut self) -> Result<i32, Box<dyn Error>> {
+    pub fn input(&mut self) -> Result<i64, Box<dyn Error>> {
         if self.input_type == InputType::Phase {
             self.current += 1;
         }
 
-        let result: Result<i32, Box<dyn Error>> = match (self.current as usize, self.input_type, self.current_out) {
+        let result: Result<i64, Box<dyn Error>> = match (self.current as usize, self.input_type, self.current_out) {
             (0, InputType::Signal, _) => Ok(0),
             (_, InputType::Signal, Some(out)) => Ok(out),
             (current, InputType::Phase, _) if current < 5 => Ok(self.phase[current]),
@@ -104,7 +105,7 @@ impl IO {
         result
     }
 
-    pub fn set_output(&mut self, val: Option<i32>) {
+    pub fn set_output(&mut self, val: Option<i64>) {
         println!("IO Output: {:?}", val);
         self.current_out = val;
     }
