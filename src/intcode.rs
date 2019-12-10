@@ -252,7 +252,7 @@ where
         }
     };
 
-    println!("{:?}", instruction);
+    //println!("{:?}", instruction);
 
     match instruction {
         Instruction::Sum { i1, i2, out } => {
@@ -321,7 +321,7 @@ where
         Instruction::RelativeBaseOffset { i1 } => {
             *relative_base += try_get_param(&program, &relative_base, i1)?;
             *pc += 2;
-            println!("Relative offset: {}", *relative_base);
+            //println!("Relative offset: {}", *relative_base);
             Ok(true)
         }
         Instruction::Halt => {
