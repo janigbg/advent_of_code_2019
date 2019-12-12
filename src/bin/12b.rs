@@ -1,61 +1,58 @@
 extern crate advent_of_code_2019;
 
 use advent_of_code_2019::parser;
+use num::integer::Integer;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashSet;
 use std::env;
 use std::hash::{Hash, Hasher};
-use std::ops::{Add, Sub};
 
 #[derive(Debug, Copy, Clone, PartialEq, Hash)]
 struct Vec3D(i32, i32, i32);
-
-impl Add for Vec3D {
-    type Output = Self;
-
-    fn add(self, other: Self) -> Self {
-        Self(self.0 + other.0, self.1 + other.1, self.2 + other.2)
-    }
-}
-
-impl Sub for Vec3D {
-    type Output = Self;
-
-    fn sub(self, other: Self) -> Self {
-        Self(self.0 - other.0, self.1 - other.1, self.2 - other.2)
-    }
-}
-
-impl Vec3D {
-    pub fn signum(&self) -> Vec3D {
-        Vec3D(self.0.signum(), self.1.signum(), self.2.signum())
-    }
-
-    pub fn abs(&self) -> Vec3D {
-        Vec3D(self.0.abs(), self.1.abs(), self.2.abs())
-    }
-}
 
 fn main() {
     let args: Vec<String> = env::args().collect();
 
     parser::print_args(&args);
 
-    let mut moons: Vec<(Vec3D, Vec3D)> = parser::parse_lines(&args)
+    let moons: Vec<(Vec3D, Vec3D)> = parser::parse_lines(&args)
         .into_iter()
         .map(parse_moon)
         .map(|m| (m, Vec3D(0, 0, 0)))
         .collect();
 
+    let iters: Vec<usize> = (0..3)
+        .map(|i| {
+            moons
+                .iter()
+                .map(|&(m, v)| (get_axis(m, i), get_axis(v, i)))
+                .collect::<Vec<(i32, i32)>>()
+        })
+        .map(|v| find_repeat_for_axis(&v))
+        .collect();
+
+    let total = iters[0].lcm(&iters[1]).lcm(&iters[2]);
+
+    println!("{:?}", iters);
+    println!("Total: {}", total);
+}
+
+fn get_axis(v: Vec3D, axis: usize) -> i32 {
+    match axis {
+        0 => v.0,
+        1 => v.1,
+        2 => v.2,
+        _ => panic!("Invalid axis"),
+    }
+}
+
+fn find_repeat_for_axis(m: &Vec<(i32, i32)>) -> usize {
     let mut steps: usize = 0;
 
     let mut iters: HashSet<u64> = HashSet::new();
-
-    let mut first = 0_u64;
-    let mut prev = 0_u64;
+    let mut moons = m.clone();
 
     loop {
-        steps += 1;
         moons = moons
             .iter()
             .enumerate()
@@ -76,30 +73,14 @@ fn main() {
         let mut hasher = DefaultHasher::new();
         moons.hash(&mut hasher);
         let hash = hasher.finish();
-        if steps == 1 {
-            first = hash;
-            prev = hash;
-        } else {
-            if first == hash || prev == hash {
-                break;
-            }
-            prev = hash;
+        if iters.contains(&hash) {
+            break;
         }
-        if steps % 100_000_000 == 0 {
-            println!("Steps: {}...", steps);
-        }
+        iters.insert(hash);
+        steps += 1;
     }
 
-    let energy = moons.iter().fold(0, |e, &m| e + energy(m));
-
-    println!("Iterations: {}", steps);
-    println!("{:?}", moons);
-    println!("Energy: {}", energy);
-}
-
-fn energy(moon: (Vec3D, Vec3D)) -> i32 {
-    let (m, v) = (moon.0.abs(), moon.1.abs());
-    (m.0 + m.1 + m.2) * (v.0 + v.1 + v.2)
+    steps
 }
 
 fn parse_moon(line: String) -> Vec3D {
