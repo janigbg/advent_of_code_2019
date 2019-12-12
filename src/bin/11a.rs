@@ -7,8 +7,8 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
 use std::error::Error;
-use std::io;
 use std::i64;
+use std::io;
 use std::io::Write;
 use std::path::Path;
 
@@ -34,7 +34,13 @@ fn main() {
 
     let mut pc = 0;
     let mut rb = 0;
-    while let Ok(true) = intcode::process_instruction(&mut program, &mut pc, &mut rb, &mut || io.input(), &mut |v| io.output(v)) {}
+    while let Ok(true) = intcode::process_instruction(
+        &mut program,
+        &mut pc,
+        &mut rb,
+        &mut || io.input(),
+        &mut |v| io.output(v),
+    ) {}
 
     io.save(&Path::new("11b.png"));
 
@@ -47,7 +53,7 @@ fn get_rgb_pixel(v: &i64) -> Vec<u8> {
     match *v {
         0 => vec![0, 0, 0],
         1 => vec![255, 255, 255],
-        _ => panic!("Invalid pixel")
+        _ => panic!("Invalid pixel"),
     }
 }
 
@@ -101,34 +107,32 @@ impl Map {
     }
 
     pub fn save(&self, path: &Path) {
-        let (x_min, x_max) = self.colors
-            .iter()
-            .fold((i64::MAX, i64::MIN), |(old_min, old_max), ((x, _), _)| {
-                match (*x < old_min, *x > old_max) {
-                    (true, false) => (*x, old_max),
-                    (false, true) => (old_min, *x),
-                    (false, false) => (old_min, old_max),
-                    (true, true) => (*x, *x),
-                }
-            });
+        let (x_min, x_max) = self.colors.iter().fold(
+            (i64::MAX, i64::MIN),
+            |(old_min, old_max), ((x, _), _)| match (*x < old_min, *x > old_max) {
+                (true, false) => (*x, old_max),
+                (false, true) => (old_min, *x),
+                (false, false) => (old_min, old_max),
+                (true, true) => (*x, *x),
+            },
+        );
 
-        let (y_min, y_max) = self.colors
-            .iter()
-            .fold((i64::MAX, i64::MIN), |(old_min, old_max), ((_, y), _)| {
-                match (*y < old_min, *y > old_max) {
-                    (true, false) => (*y, old_max),
-                    (false, true) => (old_min, *y),
-                    (false, false) => (old_min, old_max),
-                    (true, true) => (*y, *y),
-                }
-            });
+        let (y_min, y_max) = self.colors.iter().fold(
+            (i64::MAX, i64::MIN),
+            |(old_min, old_max), ((_, y), _)| match (*y < old_min, *y > old_max) {
+                (true, false) => (*y, old_max),
+                (false, true) => (old_min, *y),
+                (false, false) => (old_min, old_max),
+                (true, true) => (*y, *y),
+            },
+        );
 
         let x = x_max - x_min + 1;
         let y = y_max - y_min + 1;
 
         println!("X: {}, Y: {}", x, y);
 
-        let mut buffer: Vec<u8> = vec![0_u8; (x*y*3) as usize];
+        let mut buffer: Vec<u8> = vec![0_u8; (x * y * 3) as usize];
 
         println!("Buffer len: {}", buffer.len());
 
@@ -136,16 +140,17 @@ impl Map {
             .iter()
             .map(|((x_old, y_old), color)| ((x_old - x_min, y_old - y_min), get_rgb_pixel(color)))
             .for_each(|((x0, y0), c)| {
-                buffer[(y0*3*x+x0*3) as usize] = c[0];
-                buffer[(y0*3*x+x0*3+1) as usize] = c[1];
-                buffer[(y0*3*x+x0*3+2) as usize] = c[2];
+                buffer[(y0 * 3 * x + x0 * 3) as usize] = c[0];
+                buffer[(y0 * 3 * x + x0 * 3 + 1) as usize] = c[1];
+                buffer[(y0 * 3 * x + x0 * 3 + 2) as usize] = c[2];
             });
 
-        if let Err(err) = image::save_buffer(path, buffer.as_slice(), x as u32, y as u32, image::RGB(8)) {
+        if let Err(err) =
+            image::save_buffer(path, buffer.as_slice(), x as u32, y as u32, image::RGB(8))
+        {
             println!("{}", err);
         }
     }
- 
     pub fn paint(&mut self, color: i64) {
         self.colors.insert((self.x, self.y), color);
     }
@@ -160,18 +165,18 @@ impl Map {
             (Direction::Down, 1) => Direction::Left,
             (Direction::Left, 0) => Direction::Down,
             (Direction::Left, 1) => Direction::Up,
-            _ => self.dir
+            _ => self.dir,
         };
         match self.dir {
             Direction::Up => {
                 self.y -= 1;
-            },
+            }
             Direction::Right => {
                 self.x += 1;
-            },
+            }
             Direction::Down => {
                 self.y += 1;
-            },
+            }
             Direction::Left => {
                 self.x -= 1;
             }
@@ -212,7 +217,7 @@ impl IO {
             OutputType::Color => {
                 map.paint(val);
                 *next_out = OutputType::Direction;
-            },
+            }
             OutputType::Direction => {
                 map.turn_and_move(val);
                 *next_out = OutputType::Color;
