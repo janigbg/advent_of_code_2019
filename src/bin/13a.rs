@@ -4,7 +4,6 @@ extern crate image;
 
 use advent_of_code_2019::{intcode, parser};
 use device_query::{DeviceQuery, DeviceState, Keycode};
-//use crossbeam_channel::{bounded, Receiver, Sender};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::env;
@@ -57,6 +56,8 @@ struct IO {
     x: RefCell<i64>,
     y: RefCell<i64>,
     score: RefCell<i64>,
+    ball_x: RefCell<i64>,
+    paddle_x: RefCell<i64>,
     next_output: RefCell<OutputType>,
     map: RefCell<HashMap<(i64, i64), i64>>,
     device: DeviceState,
@@ -68,6 +69,8 @@ impl IO {
             x: RefCell::new(0),
             y: RefCell::new(0),
             score: RefCell::new(0),
+            ball_x: RefCell::new(0),
+            paddle_x: RefCell::new(0),
             next_output: RefCell::new(OutputType::X),
             map: RefCell::new(HashMap::new()),
             device: DeviceState::new(),
@@ -76,8 +79,10 @@ impl IO {
 
     pub fn input(&self) -> Result<i64, Box<dyn Error>> {
         self.output_ascii();
-        //stdin()
+        Ok((*self.ball_x.borrow() - *self.paddle_x.borrow()).signum())
+    }
 
+    fn _manual_input(&self) -> Result<i64, Box<dyn Error>> {
         let keys: Vec<Keycode> = self.device.get_keys();
         let t = time::Duration::from_millis(500);
         thread::sleep(t);
@@ -108,11 +113,19 @@ impl IO {
                 *next_out = OutputType::Tile;
             }
             OutputType::Tile => {
-                match *self.x.borrow() {
-                    -1 => {
+                match (*self.x.borrow(), val) {
+                    (-1, _) => {
                         *self.score.borrow_mut() = val;
                     }
-                    x => {
+                    (x, 4) => {
+                        *self.ball_x.borrow_mut() = x;
+                        map.insert((x, *self.y.borrow()), val);
+                    }
+                    (x, 3) => {
+                        *self.paddle_x.borrow_mut() = x;
+                        map.insert((x, *self.y.borrow()), val);
+                    }
+                    (x, _) => {
                         map.insert((x, *self.y.borrow()), val);
                     }
                 }
