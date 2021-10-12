@@ -120,7 +120,7 @@ impl From<String> for IntCodeError {
 
 impl From<io::Error> for IntCodeError {
     fn from(err: io::Error) -> Self {
-        IntCodeError::new(err.description())
+        IntCodeError::new(err.to_string())
     }
 }
 

@@ -50,7 +50,7 @@ fn main() {
 
     for y_pos in 0..y {
         for x_pos in 0..x {
-            print!("{}", get_ascii_pixel(image[y_pos*y + x_pos]));
+            print!("{}", get_ascii_pixel(image[y_pos*x + x_pos]));
         }
         println!();
     }

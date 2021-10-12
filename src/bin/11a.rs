@@ -8,8 +8,6 @@ use std::collections::HashMap;
 use std::env;
 use std::error::Error;
 use std::i64;
-use std::io;
-use std::io::Write;
 use std::path::Path;
 
 fn main() {
@@ -30,7 +28,7 @@ fn main() {
 
     let (sender, receiver) = bounded(5);
     let map = Map::new(start_color);
-    let mut io = IO::new(&sender, &receiver, map);
+    let io = IO::new(&sender, &receiver, map);
 
     let mut pc = 0;
     let mut rb = 0;
@@ -223,7 +221,6 @@ impl IO {
                 *next_out = OutputType::Color;
             }
         }
-        //self.tx.send(val).expect(&format!("Error sending {}", val));
     }
 
     pub fn get_colors(&self) -> usize {
@@ -233,14 +230,6 @@ impl IO {
     pub fn save(&self, path: &Path) {
         self.map.borrow().save(path);
     }
-}
-
-fn stdin() -> Result<i64, Box<dyn Error>> {
-    print!("INPUT: ");
-    io::stdout().flush()?;
-    let mut input = String::new();
-    io::stdin().read_line(&mut input)?;
-    Ok(input.trim().parse::<i64>()?)
 }
 
 fn program(args: &Vec<String>) -> Vec<i64> {
