@@ -1,16 +1,21 @@
 extern crate advent_of_code_2019;
 
 use advent_of_code_2019::parser;
-use num::integer::Integer;
-use std::collections::hash_map::DefaultHasher;
-use std::collections::{HashMap, HashSet};
+use permutohedron::LexicalPermutation;
+use std::collections::{HashSet};
 use std::env;
 use std::hash::{Hash, Hasher};
 
-#[derive(Debug, Eq, Clone)]
+#[derive(Debug, Eq, Ord, Clone)]
 struct Term {
     pub chemical: String,
     pub amount: i32,
+}
+
+impl PartialOrd for Term {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.chemical.partial_cmp(&other.chemical)
+    }
 }
 
 impl PartialEq for Term {
@@ -25,10 +30,23 @@ impl Hash for Term {
     }
 }
 
-#[derive(Debug, PartialEq, Eq, Clone)]
+impl Term {
+    pub fn take(&mut self, amount: i32) -> i32 {
+        if self.amount >= amount {
+            self.amount = self.amount - amount;
+            0
+        } else {
+            let missing = amount - self.amount;
+            self.amount = 0;
+            missing
+        }
+    }
+}
+
+#[derive(Debug, Eq, Clone)]
 struct Reaction {
     pub to: Term,
-    pub from: HashSet<Term>,
+    pub from: Vec<Term>,
     pub extra: HashSet<Term>,
 }
 
@@ -38,62 +56,84 @@ impl Hash for Reaction {
     }
 }
 
-impl Reaction {
-    pub fn available(&self, chemicals: &HashSet<Term>) -> bool {
-        self.from.difference(chemicals).count() == 0
+impl PartialEq for Reaction {
+    fn eq(&self, other: &Self) -> bool {
+        self.to.eq(&other.to)
+    }
+}
+
+struct NanoFactory {
+    pub reactions: HashSet<Reaction>,
+}
+
+impl NanoFactory {
+    pub fn produce(&self, target: Term) -> Result<i32, String> {
+        let reaction = self.reactions.get(&Reaction {
+            to: target.clone(),
+            from: Vec::new(),
+            extra: HashSet::new()
+        });
+
+        println!("{:?}", reaction);
+
+        match reaction {
+            Some(r) => self.produce_reaction(1, r, &HashSet::new()).map(|res|res.0),
+            None => Err("Not found".to_string())
+        }
     }
 
-    pub fn replace_with(&self, replace: &Term, with: HashSet<Term>) -> Reaction {
-        let mut target = self.clone();
-        if target.from.contains(replace) {
-            target.from.remove(replace);
-            for w in with.into_iter() {
+    fn produce_reaction(&self, times: i32, reaction: &Reaction, extraIn: &HashSet<Term>) -> Result<(i32, HashSet<Term>), String> {
+        let mut bestExtra = extraIn.clone();
+        let mut bestResult = i32::max_value();
+
+        let mut permutations = reaction.from.clone();
+        permutations.reverse();
+
+        let mut iter = true;
+        while iter {
+            let mut result = 0;
+            let mut extra = extraIn.clone();
+            for item in permutations.iter() {
+                let mut amount = item.amount * times;
                 
+                let source = self.reactions.get(&Reaction {
+                    to: item.clone(),
+                    from: Vec::new(),
+                    extra: HashSet::new()
+                });
+
+                match source {
+                    Some(source_reaction) => {
+                        if extra.contains(item) {
+                            let mut e = extra.take(item).unwrap();
+                            amount = e.take(amount);
+                            if e.amount > 0 {
+                                extra.insert(e);
+                            }
+                        }
+                        let sourceTimes = (amount as f32 / source_reaction.to.amount as f32).ceil() as i32;
+                        let excess = sourceTimes * source_reaction.to.amount - amount;
+                        let (output, extras) = self.produce_reaction(sourceTimes, source_reaction, &extra)?;
+                        extra = extras;
+                        extra.replace(Term { chemical: item.chemical.clone(), amount: excess });
+                        result = result + output;
+                    },
+                    None => {
+                        return Ok((amount, extra));
+                    }
+                }
             }
+            if result < bestResult {
+                bestResult = result;
+                bestExtra = extra;
+            }
+            iter = false;//permutations.next_permutation();
         }
 
-        target
-    }
+        println!("Cost for {} {} is {}", times * reaction.to.amount, reaction.to.chemical, bestResult);
+        println!("Extra: {:?}", bestExtra);
 
-    pub fn produce(&self, target: &Term) -> (HashSet<Term>, HashSet<Term>) {
-        if *target != self.to {
-            return (
-                [target.clone()].iter().cloned().collect::<HashSet<Term>>(),
-                HashSet::new(),
-            );
-        }
-
-        let multiplier = target.amount.div_ceil(&self.to.amount);
-
-        let mut extra: HashSet<Term> = self
-            .extra
-            .iter()
-            .cloned()
-            .map(|c| Term {
-                chemical: c.chemical,
-                amount: multiplier * c.amount,
-            })
-            .collect();
-
-        let extra_target = self.to.amount * multiplier - target.amount;
-        if extra_target > 0 {
-            extra.insert(Term {
-                chemical: target.chemical.clone(),
-                amount: extra_target,
-            });
-        }
-
-        (
-            self.from
-                .iter()
-                .cloned()
-                .map(|c| Term {
-                    chemical: c.chemical,
-                    amount: multiplier * c.amount,
-                })
-                .collect(),
-            extra,
-        )
+        Ok((bestResult, bestExtra))
     }
 }
 
@@ -104,98 +144,20 @@ fn main() {
 
     let lines = parser::parse_lines(&args);
 
-    let mut reactions: HashSet<Reaction> = lines.into_iter().map(|l| parse_reaction(l)).collect();
+    let reactions: HashSet<Reaction> = lines.into_iter().map(|l| parse_reaction(l)).collect();
 
     println!("{:?}", reactions);
 
-    let mut mapped: HashSet<Term> = HashSet::with_capacity(reactions.len());
-    let ore = Term {
-        chemical: String::from("ORE"),
-        amount: 1,
-    };
     let fuel = Term {
         chemical: String::from("FUEL"),
         amount: 1,
     };
-    mapped.insert(ore.clone());
 
-    let basic: Vec<Term> = reactions
-        .iter()
-        .cloned()
-        .filter(|r| r.available(&mapped))
-        .map(|r| r.to)
-        .collect();
-
-    let mut target = reactions
-        .get(&Reaction {
-            to: fuel.clone(),
-            from: HashSet::new(),
-            extra: HashSet::new(),
-        })
-        .unwrap()
-        .clone();
-
-    let to_replace = target.from.clone();
-
-    for c in to_replace.iter() {
-        let mut cs: HashSet<Term> = [c.clone()].iter().cloned().collect();
-        while !cs.iter().all(|x| basic.contains(x)) {
-            for reduce in cs.iter().filter(|x| !basic.contains(x)) {
-                cs.remove(reduce);
-                let 
-            }
-        }
-    }
-
-    let mut result: HashMap<Term, Reaction> = HashMap::with_capacity(reactions.len());
-    let ore_reaction = Reaction {
-        from: [ore.clone()].iter().cloned().collect(),
-        to: ore.clone(),
-        extra: HashSet::new(),
+    let factory = NanoFactory {
+        reactions: reactions
     };
-    result.insert(ore.clone(), ore_reaction);
 
-    while reactions.len() > 0 {
-        let available: Vec<Reaction> = reactions
-            .iter()
-            .cloned()
-            .filter(|r| r.available(&mapped))
-            .collect();
-
-        for r in available.into_iter() {
-            let mut ore_amount = 0;
-            let mut extras: HashSet<Term> = HashSet::new();
-            for t in r.from.iter() {
-                let (or, extra) = result.get(t).unwrap().produce(t);
-                ore_amount += or.get(&ore).unwrap().amount;
-                for e in extra.into_iter() {
-                    extras.replace(match extras.get(&e) {
-                        Some(ref ee) => Term {
-                            chemical: e.chemical,
-                            amount: ee.amount + e.amount,
-                        },
-                        None => e,
-                    });
-                }
-            }
-
-            reactions.remove(&r);
-
-            let new_r = Reaction {
-                to: r.to,
-                from: [Term {
-                    chemical: ore.chemical.clone(),
-                    amount: ore_amount,
-                }]
-                .iter()
-                .cloned()
-                .collect(),
-                extra: extras,
-            };
-            mapped.insert(new_r.to.clone());
-            result.insert(new_r.to.clone(), new_r);
-        }
-    }
+    let result = factory.produce(fuel).unwrap();
 
     println!("RESULT:");
     println!("{:?}", result);
