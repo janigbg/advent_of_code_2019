@@ -5,8 +5,8 @@ use advent_of_code_2019::nanofactory::{NanoFactory, Reaction, Term};
 use std::collections::{HashSet};
 use std::env;
 
-
 fn main() {
+    const ORE: i64 = 1_000_000_000_000;
     let args: Vec<String> = env::args().collect();
 
     parser::print_args(&args);
@@ -26,10 +26,31 @@ fn main() {
         reactions: reactions
     };
 
-    let result = factory.produce(1, &fuel, HashSet::new()).unwrap();
+    let benchmark = factory.produce(1, &fuel, HashSet::new()).unwrap().0;
 
-    println!("RESULT:");
-    println!("{:?}", result.0);
+
+    let mut ore_left = ORE;
+    let mut total_fuel = 0;
+    let mut extra = HashSet::new();
+
+    while ore_left > 0 {
+        let min_fuel = std::cmp::min(10000, std::cmp::max(ore_left / benchmark, 1));
+
+        let result = factory.produce(min_fuel,  &fuel, extra).unwrap();
+        extra = result.1;
+
+        ore_left = ore_left - result.0 as i64;
+        if ore_left >= 0 {
+            total_fuel = total_fuel + min_fuel;
+            if total_fuel % 100_000 == 0 {
+                println!("Iteration: {}", total_fuel);
+            }
+        }
+    }
+    
+
+    println!("TOTAL FUEL:");
+    println!("{:?}", total_fuel);
 }
 
 fn parse_term(term: &str) -> Term {
