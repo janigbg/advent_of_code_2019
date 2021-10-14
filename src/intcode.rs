@@ -90,7 +90,7 @@ pub struct IntCodeError {
 }
 
 impl IntCodeError {
-    fn new<'a, T>(msg: T) -> Self
+    pub fn new<'a, T>(msg: T) -> Self
     where
         T: AsRef<str> + 'a,
     {

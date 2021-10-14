@@ -29,7 +29,7 @@ fn main() {
         program[0] = args[3].parse().unwrap();
     }
 
-    let mut io = IO::new();
+    let io = IO::new();
 
     let mut pc = 0;
     let mut rb = 0;
