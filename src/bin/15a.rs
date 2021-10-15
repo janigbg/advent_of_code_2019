@@ -53,6 +53,17 @@ fn main() {
     if let Some((_, dist)) = result {
         println!("DISTANCE: {}", dist);
     }
+    
+    let minutes = io.all_tiles(1).into_iter().filter_map(|pos| {
+        let res = astar(&goal, |p| io.successor(p),|p| distance(p, &pos) / 3,
+    |p| *p == pos);
+        match res {
+            Some((_, dist)) => Some(dist),
+            None => None,
+        }
+    }).max().unwrap();
+
+    println!("Complete map is filled with oxygen in {} minutes", minutes);
 }
 
 fn distance(p1: &(i64, i64), p2: &(i64, i64)) -> i32 {
@@ -117,6 +128,10 @@ impl IO {
 
     pub fn is_done(&self) -> bool {
         *self.done.borrow()
+    }
+
+    pub fn all_tiles(&self, with_val: i64) -> Vec<(i64, i64)> {
+        self.map.borrow().iter().filter_map(|(k, v)| match *v == with_val { true => Some(k.clone()), false => None}).collect()
     }
 
     pub fn input(&self) -> Result<i64, Box<dyn Error>> {
